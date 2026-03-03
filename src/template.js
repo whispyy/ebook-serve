@@ -6,9 +6,17 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-function renderPage(books, query) {
+function buildUrl({ query, sort, page }) {
+  const p = new URLSearchParams();
+  if (query) p.set('q', query);
+  if (sort && sort !== 'date') p.set('sort', sort);
+  if (page && page > 1) p.set('page', String(page));
+  const qs = p.toString();
+  return qs ? '/?' + qs : '/';
+}
+
+function renderPage(books, { query, sort, currentPage, totalPages, totalBooks }) {
   const hasConverting = books.some(b => b.status === 'converting' || b.status === 'pending');
-  const total = books.length;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -29,7 +37,7 @@ function renderPage(books, query) {
       color: #111;
     }
     h1 { font-size: 1.5em; margin-bottom: 0.8em; }
-    form { margin-bottom: 1em; }
+    form { margin-bottom: 0.8em; }
     input[type="text"] {
       font-size: 1em;
       padding: 0.45em 0.6em;
@@ -46,15 +54,22 @@ function renderPage(books, query) {
       text-decoration: none;
       display: inline-block;
     }
-    .btn-clear {
-      background: #666;
-      margin-left: 0.4em;
-    }
-    .count {
-      font-size: 0.9em;
-      color: #555;
+    .btn-clear { background: #666; margin-left: 0.4em; }
+    .toolbar {
+      display: table;
+      width: 100%;
       margin-bottom: 0.8em;
+      font-size: 0.9em;
     }
+    .toolbar-left, .toolbar-right {
+      display: table-cell;
+      vertical-align: middle;
+    }
+    .toolbar-right { text-align: right; }
+    .count { color: #555; }
+    .sort-toggle { color: #555; }
+    .sort-toggle a { color: #111; }
+    .sort-toggle .active { font-weight: bold; color: #111; }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -84,6 +99,32 @@ function renderPage(books, query) {
     .status-converting { color: #888; font-style: italic; font-size: 0.9em; }
     .status-failed { color: #c00; font-size: 0.9em; }
     .empty { padding: 1em 0; color: #555; }
+    .pagination {
+      margin-top: 1.2em;
+      display: table;
+      width: 100%;
+      font-size: 0.95em;
+    }
+    .pagination-prev, .pagination-info, .pagination-next {
+      display: table-cell;
+      vertical-align: middle;
+      padding: 0.2em;
+    }
+    .pagination-info { text-align: center; color: #555; }
+    .pagination-next { text-align: right; }
+    .page-link {
+      display: inline-block;
+      padding: 0.45em 0.9em;
+      background: #111;
+      color: #fff;
+      text-decoration: none;
+    }
+    .page-disabled {
+      display: inline-block;
+      padding: 0.45em 0.9em;
+      background: #ccc;
+      color: #888;
+    }
   </style>
 </head>
 <body>
@@ -91,16 +132,31 @@ function renderPage(books, query) {
 
   <form method="GET" action="/">
     <input type="text" name="q" value="${escapeHtml(query)}" placeholder="Search by title...">
+    ${sort !== 'date' ? `<input type="hidden" name="sort" value="${escapeHtml(sort)}">` : ''}
     <button type="submit">Search</button>
-    ${query ? '<a href="/" class="btn btn-clear">Clear</a>' : ''}
+    ${query ? `<a href="${buildUrl({ sort })}" class="btn btn-clear">Clear</a>` : ''}
   </form>
 
-  <p class="count">
-    ${total} book${total !== 1 ? 's' : ''}${query ? ` matching &ldquo;${escapeHtml(query)}&rdquo;` : ''}
-    ${hasConverting ? '&mdash; conversions in progress, refreshing&hellip;' : ''}
-  </p>
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <span class="count">
+        ${totalBooks} book${totalBooks !== 1 ? 's' : ''}${query ? ` matching &ldquo;${escapeHtml(query)}&rdquo;` : ''}${hasConverting ? ' &mdash; conversions in progress, refreshing&hellip;' : ''}
+      </span>
+    </div>
+    <div class="toolbar-right">
+      <span class="sort-toggle">
+        ${sort === 'date'
+          ? '<span class="active">Recent</span>'
+          : `<a href="${buildUrl({ query, sort: 'date' })}">Recent</a>`}
+        &nbsp;|&nbsp;
+        ${sort === 'alpha'
+          ? '<span class="active">A&ndash;Z</span>'
+          : `<a href="${buildUrl({ query, sort: 'alpha' })}">A&ndash;Z</a>`}
+      </span>
+    </div>
+  </div>
 
-  ${total === 0
+  ${books.length === 0
     ? '<p class="empty">No books found.</p>'
     : `<table>
     <thead>
@@ -129,7 +185,21 @@ function renderPage(books, query) {
         </td>
       </tr>`).join('')}
     </tbody>
-  </table>`}
+  </table>
+  ${totalPages > 1 ? `
+  <div class="pagination">
+    <div class="pagination-prev">
+      ${currentPage > 1
+        ? `<a class="page-link" href="${buildUrl({ query, sort, page: currentPage - 1 })}">&larr; Previous</a>`
+        : '<span class="page-disabled">&larr; Previous</span>'}
+    </div>
+    <div class="pagination-info">Page ${currentPage} of ${totalPages}</div>
+    <div class="pagination-next">
+      ${currentPage < totalPages
+        ? `<a class="page-link" href="${buildUrl({ query, sort, page: currentPage + 1 })}">Next &rarr;</a>`
+        : '<span class="page-disabled">Next &rarr;</span>'}
+    </div>
+  </div>` : ''}`}
 </body>
 </html>`;
 }
