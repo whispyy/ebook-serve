@@ -1,0 +1,13 @@
+services:
+  ebook-serve:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./in:/in
+      - ./out:/out
+    environment:
+      IN_DIR: /in
+      OUT_DIR: /out
+      PORT: 3000
+    restart: unless-stopped

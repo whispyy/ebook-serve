@@ -1,0 +1,13 @@
+{
+  "name": "ebook-serve",
+  "version": "1.0.0",
+  "description": "Serve and convert epub files to azw3 using Calibre",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0",
+    "express": "^4.19.0"
+  }
+}
