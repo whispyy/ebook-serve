@@ -8,6 +8,21 @@ const app = express();
 const OUT_DIR = process.env.OUT_DIR || '/out';
 const PORT = process.env.PORT || 3000;
 const PAGE_SIZE = parseInt(process.env.PAGE_SIZE || '20', 10);
+const PASSWORD = process.env.PASSWORD || '';
+
+function requireAuth(req, res, next) {
+  const header = req.headers.authorization;
+  if (header && header.startsWith('Basic ')) {
+    const [, pass] = Buffer.from(header.slice(6), 'base64').toString().split(':');
+    if (pass === PASSWORD) return next();
+  }
+  res.set('WWW-Authenticate', 'Basic realm="Books"');
+  res.status(401).send('Authentication required');
+}
+
+if (PASSWORD) {
+  app.use(requireAuth);
+}
 
 // Serve converted files for download
 app.use('/files', express.static(OUT_DIR));
